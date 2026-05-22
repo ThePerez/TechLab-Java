@@ -1,65 +1,42 @@
 package com.techlab.ecommerce.ui;
 
+import com.techlab.ecommerce.exception.StockInsuficienteException;
+import com.techlab.ecommerce.model.LineaPedido;
+import com.techlab.ecommerce.model.Pedido;
 import com.techlab.ecommerce.model.Producto;
 import com.techlab.ecommerce.service.ProductoService;
 import com.techlab.ecommerce.util.Validador;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-/**
- * Maneja la interacción con el usuario a través del menú de consola.
- *
- * Esta clase es responsable de:
- *  - Mostrar el menú al usuario.
- *  - Pedirle los datos necesarios para cada operación.
- *  - Mostrar los resultados o mensajes informativos.
- *
- * No contiene lógica de negocio: para todo lo que tenga que ver
- * con guardar, buscar, actualizar o eliminar productos, delega en
- * el ProductoService. Tampoco controla el flujo del programa: eso
- * lo hace el Main, que decide cuándo llamar a cada método de esta
- * clase y atrapa las excepciones que puedan ocurrir.
- */
 public class MenuProducto {
 
-    // Atributos: el Scanner y el Service que esta clase necesita
-    // para hacer su trabajo. Se reciben por constructor (no se
-    // crean acá adentro) para que quien instancia la clase tenga
-    // el control sobre qué Scanner y qué Service usar. Esto se
-    // llama "inyección por constructor" y es el mismo patrón que
-    // van a ver en Spring Boot.
     private final Scanner sc;
     private final ProductoService service;
+    
+    // Lista para guardar los pedidos que vayamos creando
+    private final List<Pedido> historialPedidos;
 
     public MenuProducto(Scanner sc, ProductoService service) {
         this.sc = sc;
         this.service = service;
+        this.historialPedidos = new ArrayList<>();
     }
 
-    // ----------------------------------------------------------------
-    // Menú principal
-    // ----------------------------------------------------------------
-
     public void mostrarMenu() {
-        System.out.println("======= TechLab - Gestión de Productos =======");
+        System.out.println("\n======= TechLab - Gestión de Sistema =======");
         System.out.println("1) Agregar producto");
         System.out.println("2) Listar productos");
         System.out.println("3) Buscar producto por ID");
         System.out.println("4) Actualizar producto");
         System.out.println("5) Eliminar producto");
-        System.out.println("6) Salir");
+        System.out.println("6) Crear un pedido");
+        System.out.println("7) Listar pedidos");
+        System.out.println("8) Salir");
         System.out.println("==============================================");
     }
-
-    // ----------------------------------------------------------------
-    // Operaciones del CRUD
-    // ----------------------------------------------------------------
-    // Cada método corresponde a una opción del menú. Como los
-    // atributos sc y service ya están guardados en la instancia,
-    // los métodos no necesitan recibirlos por parámetro: los usan
-    // directamente con this.sc y this.service (Java permite omitir
-    // el "this" cuando no hay ambigüedad).
 
     public void agregarProducto() {
         System.out.println("--- Nuevo producto ---");
@@ -68,8 +45,6 @@ public class MenuProducto {
         int stock = Validador.leerEntero(sc, "Stock: ");
         String categoria = Validador.leerTexto(sc, "Categoría: ");
 
-        // Construimos el producto y lo enviamos al servicio.
-        // El servicio se encarga de validar y de asignar el id.
         Producto p = new Producto(nombre, precio, stock, categoria);
         Producto guardado = service.guardar(p);
 
@@ -77,7 +52,6 @@ public class MenuProducto {
     }
 
     public void listarProductos() {
-        // Recibimos un List, ver explicación en ProductoService
         List<Producto> lista = service.listarTodos();
 
         if (lista.isEmpty()) {
@@ -87,25 +61,18 @@ public class MenuProducto {
 
         System.out.println("--- Catálogo ---");
         for (Producto p : lista) {
-            // Java llama automáticamente a p.toString() al
-            // imprimir un objeto con println.
             System.out.println(p);
         }
     }
 
     public void buscarProducto() {
         int id = Validador.leerEntero(sc, "Ingrese el id del producto: ");
-        // Si no existe, obtenerPorId lanza excepción y el catch
-        // del Main muestra el mensaje al usuario.
         Producto p = service.obtenerPorId(id);
         System.out.println("Encontrado: " + p);
     }
 
     public void actualizarProducto() {
         int id = Validador.leerEntero(sc, "Ingrese el id del producto a actualizar: ");
-
-        // Mostramos primero los datos actuales para que el usuario
-        // sepa qué está modificando.
         Producto actual = service.obtenerPorId(id);
         System.out.println("Datos actuales: " + actual);
 
@@ -125,5 +92,65 @@ public class MenuProducto {
         int id = Validador.leerEntero(sc, "Ingrese el id del producto a eliminar: ");
         service.eliminar(id);
         System.out.println("Producto eliminado.");
+    }
+
+    // ----------------------------------------------------------------
+    // Operaciones de Pedidos (NUEVO)
+    // ----------------------------------------------------------------
+
+    public void crearPedido() {
+        System.out.println("\n--- Nuevo Pedido ---");
+        
+        if (service.listarTodos().isEmpty()) {
+            System.out.println("No hay productos disponibles para comprar.");
+            return;
+        }
+
+        Pedido nuevoPedido = new Pedido();
+        boolean seguirComprando = true;
+
+        while (seguirComprando) {
+            listarProductos();
+            int id = Validador.leerEntero(sc, "\nIngrese el ID del producto a comprar: ");
+            Producto p = service.obtenerPorId(id); // Lanza excepción si no existe
+
+            int cantidad = Validador.leerEntero(sc, "Cantidad deseada: ");
+            
+            // Validamos que alcance el stock. Si no alcanza, Validador lanza la excepción
+            Validador.validarStock(p.getStock() - cantidad);
+
+            // Si llegamos acá, es porque hay stock. Lo descontamos.
+            p.setStock(p.getStock() - cantidad);
+            
+            // Lo agregamos a la orden
+            nuevoPedido.agregarLinea(new LineaPedido(p, cantidad));
+            System.out.println("✔ Producto agregado al carrito.");
+
+            String resp = Validador.leerTexto(sc, "¿Desea agregar otro producto? (s/n): ");
+            if (!resp.equalsIgnoreCase("s")) {
+                seguirComprando = false;
+            }
+        }
+
+        if (!nuevoPedido.getLineas().isEmpty()) {
+            historialPedidos.add(nuevoPedido);
+            System.out.println("\n¡Pedido confirmado exitosamente!");
+            System.out.println(nuevoPedido); // Imprime el ticket
+        } else {
+            System.out.println("Pedido cancelado.");
+        }
+    }
+
+    public void listarPedidos() {
+        if (historialPedidos.isEmpty()) {
+            System.out.println("No hay pedidos registrados en el historial.");
+            return;
+        }
+
+        System.out.println("\n--- Historial de Pedidos ---");
+        for (Pedido ped : historialPedidos) {
+            System.out.println(ped);
+            System.out.println();
+        }
     }
 }
