@@ -55,24 +55,20 @@ public class Main {
                     case 3 -> menu.buscarProducto();
                     case 4 -> menu.actualizarProducto();
                     case 5 -> menu.eliminarProducto();
-                    case 6 -> System.out.println("¡Hasta luego!");
-                    default -> System.out.println("Opción inválida. Elija un número del 1 al 6.");
+                    case 6 -> menu.crearPedido(); // NUEVO
+                    case 7 -> menu.listarPedidos(); // NUEVO
+                    case 8 -> System.out.println("¡Hasta luego!"); // CAMBIÓ AL 8
+                    default -> System.out.println("Opción inválida. Elija un número del 1 al 8.");
                 }
             } catch (ProductoNoEncontradoException | StockInsuficienteException e) {
-                // Capturamos nuestras excepciones personalizadas.
-                // Cada una tiene su propio mensaje, definido al
-                // momento de lanzarla en el servicio o el validador.
                 System.out.println(e.getMessage());
             } catch (IllegalArgumentException e) {
-                // IllegalArgumentException es la que lanza el
-                // Validador para datos genéricos inválidos
-                // (nombre vacío, precio negativo, etc.).
                 System.out.println("Dato inválido: " + e.getMessage());
             }
 
             System.out.println(); // línea en blanco entre operaciones
 
-        } while (opcion != 6);
+        } while (opcion != 8);
 
         sc.close();
     }
